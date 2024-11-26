@@ -17,13 +17,14 @@ A simple URL Shortener Service that allows users to convert long URLs into short
 * Time-to-Live (TTL): Allows URLs to expire after a specified duration, with appropriate cleanup
 ### Architecture and Design Decisions
 1. Overall Architecture
-The application follows a modular design with separation of concerns, enhancing maintainability and scalability. The key components are:
-
-* API Layer: Handles HTTP requests and responses.
-* Services Layer: Contains business logic for URL shortening, validation, redirection, and optional features.
-* Data Storage Layer: In-memory storage system to store mappings between long URLs and short URLs.
-* Concurrency Handling: Utilizes thread-safe data structures and synchronization mechanisms to handle multiple requests simultaneously.
-2. Design Decisions
+   
+   The application follows a modular design with separation of concerns, enhancing maintainability and scalability. The key components are:
+   
+      * API Layer: Handles HTTP requests and responses.
+      * Services Layer: Contains business logic for URL shortening, validation, redirection, and optional features.
+      * Data Storage Layer: In-memory storage system to store mappings between long URLs and short URLs.
+      * Concurrency Handling: Utilizes thread-safe data structures and synchronization mechanisms to handle multiple requests simultaneously.
+3. Design Decisions
 * Programming Language and Framework: Implemented using Golang with the Gin web framework, chosen for its performance, simplicity, and built-in concurrency support.
 
 * URL Shortening Algorithm: 
@@ -138,10 +139,15 @@ URL Mapping Structure
 Workflow Diagrams
     
 * URL Shortening Workflow
-![d1](https://github.com/user-attachments/assets/0c8e0b6e-7b00-458c-a168-e7280a61a53a)
+  
+   ![d1](https://github.com/user-attachments/assets/5f64fe76-e5f8-4636-ba2a-921444571af9)
+
+
 
 * URL Redirection Workflow
-![d2](https://github.com/user-attachments/assets/3d5c60a7-5ae6-47c9-b67e-896676accdd3)
+
+   ![d2](https://github.com/user-attachments/assets/4a87578b-49d2-46f7-8028-b3b00196e1b4)
+
 
 
 Database Schema
