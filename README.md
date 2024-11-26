@@ -50,8 +50,8 @@ A simple URL Shortener Service that allows users to convert long URLs into short
 #### Installation Steps
 * Clone the repository
 
-        git clone https://github.com/yourusername/url-shortener.git
-            cd url-shortener
+        git clone https://github.com/Codedude1/shorty.git
+        cd shorty
 * Initialize go modules
     
         go mod tidy
