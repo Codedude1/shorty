@@ -1,6 +1,9 @@
+// handlers/shorten.go
+
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -13,10 +16,7 @@ import (
 
 func ShortenURLHandler(store *storage.Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var request struct {
-			URL          string `json:"url" binding:"required"`
-			ExpiryInMins int    `json:"expiry_in_mins"` // Optional TTL parameter
-		}
+		var request models.ShortenRequest
 
 		// Bind the JSON request body to the request struct
 		if err := c.ShouldBindJSON(&request); err != nil {
@@ -30,6 +30,12 @@ func ShortenURLHandler(store *storage.Storage) gin.HandlerFunc {
 			return
 		}
 
+		// Hash the long URL
+		hash := services.HashString(request.URL)
+
+		// Generate the short code
+		shortCode := services.EncodeHash(hash, 6) // Adjust length as desired
+
 		// Lock the storage for writing
 		store.Mu.Lock()
 		defer store.Mu.Unlock()
@@ -42,14 +48,21 @@ func ShortenURLHandler(store *storage.Storage) gin.HandlerFunc {
 			return
 		}
 
-		// Generate a unique ID and encode it to create the short code
-		id := services.GenerateID(&store.IdCounter)
-		shortCode := services.Encode(id)
+		counter := 1
+		for {
+			newHashInput := fmt.Sprintf("%s%d", request.URL, counter)
+			hash = services.HashString(newHashInput)
+			shortCode = services.EncodeHash(hash, 6)
+			if _, exists := store.URLMap[shortCode]; !exists {
+				break
+			}
+			counter++
+		}
 
 		// Set expiration time if provided
 		var expiresAt time.Time
 		if request.ExpiryInMins > 0 {
-			expiresAt = time.Now().Add(time.Duration(request.ExpiryInMins) * time.Minute)
+			expiresAt = time.Now().Add(time.Duration(request.ExpiryInMins) * time.Second)
 		}
 
 		// Create the URL model
@@ -62,7 +75,7 @@ func ShortenURLHandler(store *storage.Storage) gin.HandlerFunc {
 		}
 
 		// Store the mapping in the storage
-		store.UrlMap[shortCode] = urlModel
+		store.URLMap[shortCode] = urlModel
 		store.LongURLMap[request.URL] = shortCode
 
 		// Construct the short URL

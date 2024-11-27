@@ -1,23 +1,29 @@
 package services
 
-import "strings"
+import (
+	"math/big"
+	"strings"
+)
 
 const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-func Encode(number int64) string {
-	if number == 0 {
+// EncodeBigInt encodes a big.Int number into a base62 string
+func EncodeBigInt(number *big.Int) string {
+	if number.Cmp(big.NewInt(0)) == 0 {
 		return string(alphabet[0])
 	}
 
 	var encoded strings.Builder
-	base := int64(len(alphabet))
+	base := big.NewInt(int64(len(alphabet)))
+	zero := big.NewInt(0)
 
-	for number > 0 {
-		remainder := number % base
-		encoded.WriteByte(alphabet[remainder])
-		number = number / base
+	for number.Cmp(zero) > 0 {
+		remainder := new(big.Int)
+		number.DivMod(number, base, remainder)
+		encoded.WriteByte(alphabet[remainder.Int64()])
 	}
-	// Reversing the string
+
+	// Reverse the string
 	result := encoded.String()
 	runes := []rune(result)
 	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
