@@ -14,7 +14,7 @@ A simple URL Shortener Service that allows users to convert long URLs into short
 
 * Access Statistics: Tracks and displays the number of times a shortened URL has been accessed.
 
-* Time-to-Live (TTL): Allows URLs to expire after a specified duration, with appropriate cleanup
+* Time-to-Live (TTL): Allows URLs to expire after a specified duration, with appropriate cleanup.
 ### Architecture and Design Decisions
 1. Overall Architecture
    
@@ -60,7 +60,55 @@ A simple URL Shortener Service that allows users to convert long URLs into short
     
         go run main.go
 
-The server will start on http://localhost:8080.
+The server will start on http://localhost:8081.
+
+### Configuration Options
+Shorty can be customized using environment variables. Below are the configurable options:
+
+* Server Port:
+
+    * Environment Variable: PORT
+    * Default: 8081
+    * Description: Specifies the port on which the server listens.
+
+
+* Default TTL:
+
+    * Environment Variable: DEFAULT_TTL
+    * Default: 24h
+    * Description: Sets the default time-to-live for shortened URLs.
+
+* Storage Type:
+
+    * Environment Variable: STORAGE_TYPE
+    * Options: memory, redis, postgresql
+    * Default: memory
+    * Description: Determines the type of storage backend used.
+
+To set environment variables, you can create a .env file in the project root:
+```env   
+   PORT=8081
+   DEFAULT_TTL=24h
+   STORAGE_TYPE=memory
+```
+
+
+
+And load them using a package like github.com/joho/godotenv:
+
+
+
+    import (
+        "github.com/joho/godotenv"
+    )
+
+    func main() {
+        err := godotenv.Load()
+        if err != nil {
+            log.Println("No .env file found")
+        }
+    // Rest of the code
+    }
 
 ### Usage
 * Shorten a URL
@@ -73,18 +121,31 @@ The server will start on http://localhost:8080.
         {"url": "https://www.example.com"}
     Example using cURL:
 
-        curl -X POST -H "Content-Type: application/json" -d '{"url":"https://www.example.com"}' http://localhost:8080/shorten
+        curl -X POST -H "Content-Type: application/json" -d '{"url":"https://www.example.com"}' http://localhost:8081/shorten
     Response:
 
-        {"short_url": "http://localhost:8080/abc123"}
+        {"short_url": "http://localhost:8081/abc123"}
+* Shorten a URL with TTL
 
+
+   Endpoint: POST /shorten
+   
+   Request Body:
+
+      {"url": "https://www.example.com", "expiry_in_sec": 30}
+   Example using cURL:
+
+        curl -X POST -H "Content-Type: application/json" -d '{"url":"https://www.example.com", "expiry_in_sec": 30}' http://localhost:8081/shorten
+   Response:
+
+        {"short_url": "http://localhost:8081/abc123"}
 
 *  Redirect to Original URL
 
     Access the shortened URL in a web browser or via an HTTP       
     GET request:
 
-        curl -L http://localhost:8080/abc123
+        curl -L http://localhost:8081/abc123
 
 
 This will redirect you to https://www.example.com.
@@ -95,11 +156,74 @@ This will redirect you to https://www.example.com.
     
     Example:
 
-        curl http://localhost:8080/stats/abc123
+        curl http://localhost:8081/stats/abc123
     
     Response:
 
         {"long_url": "https://www.example.com", "access_count": 42}
+### Error Handling & Validation
+Shorty handles various error scenarios to ensure robust and reliable operation:
+
+* Invalid URLs:
+
+    * Scenario: Submitting a malformed or invalid URL.
+
+    * Response: 400 Bad Request
+
+    * Example Response:
+
+        ```json
+        {
+            "error": "Invalid URL format."
+        }
+* URL Expired:
+
+    * Scenario: Accessing a shortened URL that has expired.
+
+    * Response: 410 Gone
+
+    * Example Response:
+
+        ```json
+        {
+            "error": "This short URL has expired."
+        }
+* Non-Existent Short URL:
+
+    * Scenario: Accessing a short URL that does not exist.
+
+    * Response: 404 Not Found
+
+    * Example Response:
+
+        ```json
+        {
+            "error": "Short URL not found."
+        }
+* Duplicate URL Submission:
+
+    * Scenario: Submitting the same long URL multiple times.
+
+    * Response: Returns the existing short URL without creating duplicates.
+
+    * Example Response:
+
+        ```json
+        {
+            "short_url": "http://localhost:8081/abc123"
+        }
+* Server Errors:
+
+    * Scenario: Unexpected server-side issues.
+
+    * Response: 500 Internal Server Error
+
+    * Example Response:
+
+    ```json
+    {
+        "error": "An unexpected error occurred. Please try again later."
+  }
 
 ### Challenges Faced 
 * Ensuring Thread Safety
@@ -125,32 +249,38 @@ This will redirect you to https://www.example.com.
 * Enhanced Validation: Add checks for malicious URLs or phishing attempts.
 * Rate Limiting: Implement rate limiting to prevent abuse of the service.
 ### Appendix
-#### Data Models
-URL Mapping Structure
-```
-  type URL struct {
-      LongURL     string    `json:"long_url"`
-      ShortURL    string    `json:"short_url"`
-      CreatedAt   time.Time `json:"created_at"`
-      AccessCount int       `json:"access_count"`
-      ExpiresAt   time.Time `json:"expires_at"` 
-  }
-```
-Workflow Diagrams
+#### Workflow Diagrams
     
 * URL Shortening Workflow
-  
-   ![d1](https://github.com/user-attachments/assets/5f64fe76-e5f8-4636-ba2a-921444571af9)
+
+   ```mermaid
+      graph TD
+    A[User Submits Long URL via POST /shorten] --> B[Validate URL Format]
+    B -->|Valid| C[Check if URL Already Exists]
+    C -->|Exists| D[Return Existing Short URL]
+    C -->|Does Not Exist| E[Generate Unique ID]
+    E --> F[Encode ID using Base62]
+    F --> G[Store Mapping in In-Memory Storage]
+    G --> H[Return Shortened URL to User]
+    B -->|Invalid| I[Return 400 Bad Request]
 
 
 
 * URL Redirection Workflow
 
-   ![d2](https://github.com/user-attachments/assets/4a87578b-49d2-46f7-8028-b3b00196e1b4)
+   ```mermaid
+      graph TD
+    A["User Accesses Shortened URL via GET /{shortURL}"] --> B["Retrieve Original URL from Storage"]
+    B --> C{Check if URL is Expired}
+    C -->|Expired| D["Return 410 Gone"]
+    C -->|Not Expired| E["Increment Access Count"]
+    E --> F["Redirect to Original URL"]
+    B -->|Not Found| G["Return 404 Not Found"]
 
 
 
-Database Schema
+
+#### Database Schema
 
 While the service uses in-memory storage, the following database schemas outline how the data would be structured in a relational database for future scalability.
 
