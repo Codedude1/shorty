@@ -13,31 +13,24 @@ func RedirectHandler(store *storage.Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		shortCode := c.Param("shortCode")
 
-		store.Mu.RLock()
-		urlModel, exists := store.URLMap[shortCode]
-		store.Mu.RUnlock()
+		// Retrieve URL from storage using encapsulated method
+		urlModel, exists := store.GetURL(shortCode)
 
 		if !exists {
 			utils.RespondWithError(c, http.StatusNotFound, "Short URL not found")
 			return
 		}
 
-		// Checking for expiration
+		// Check for expiration
 		if !urlModel.ExpiresAt.IsZero() && time.Now().After(urlModel.ExpiresAt) {
-			// Removing expired URL from storage
-			store.Mu.Lock()
-			delete(store.URLMap, shortCode)
-			delete(store.LongURLMap, urlModel.LongURL)
-			store.Mu.Unlock()
-
+			// Remove expired URL from storage
+			store.DeleteURL(shortCode)
 			utils.RespondWithError(c, http.StatusGone, "Short URL has expired")
 			return
 		}
 
-		// Increment access count
-		store.Mu.Lock()
-		urlModel.AccessCount++
-		store.Mu.Unlock()
+		// Increment access count using encapsulated method
+		store.IncrementAccessCount(shortCode)
 
 		// Redirect to the original long URL
 		c.Redirect(http.StatusFound, urlModel.LongURL)

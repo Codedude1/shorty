@@ -1,33 +1,43 @@
 package services
 
 import (
+	"errors"
 	"math/big"
 	"strings"
 )
 
-const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+// EncodeBigInt encodes a big.Int to a base62 string.
+// It returns an error if the input is nil or negative.
+func EncodeBigInt(n *big.Int) (string, error) {
+	if n == nil {
+		return "", errors.New("nil big.Int provided")
+	}
+	if n.Sign() < 0 {
+		return "", errors.New("negative big.Int cannot be encoded")
+	}
 
-// EncodeBigInt encodes a big.Int number into a base62 string
-func EncodeBigInt(number *big.Int) string {
-	if number.Cmp(big.NewInt(0)) == 0 {
-		return string(alphabet[0])
+	const base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	if n.Cmp(big.NewInt(0)) == 0 {
+		return "0", nil
 	}
 
 	var encoded strings.Builder
-	base := big.NewInt(int64(len(alphabet)))
+	base := big.NewInt(62)
 	zero := big.NewInt(0)
+	mod := new(big.Int)
 
-	for number.Cmp(zero) > 0 {
-		remainder := new(big.Int)
-		number.DivMod(number, base, remainder)
-		encoded.WriteByte(alphabet[remainder.Int64()])
+	temp := new(big.Int).Set(n) // Create a copy to preserve the original value
+
+	for temp.Cmp(zero) > 0 {
+		temp.DivMod(temp, base, mod)
+		encoded.WriteByte(base62Chars[mod.Int64()])
 	}
 
 	// Reverse the string
-	result := encoded.String()
-	runes := []rune(result)
+	runes := []rune(encoded.String())
 	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
 		runes[i], runes[j] = runes[j], runes[i]
 	}
-	return string(runes)
+
+	return string(runes), nil
 }

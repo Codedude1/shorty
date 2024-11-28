@@ -1,5 +1,3 @@
-// handlers/stats.go
-
 package handlers
 
 import (
@@ -16,9 +14,8 @@ func StatsHandler(store *storage.Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		shortCode := c.Param("shortCode")
 
-		store.Mu.RLock()
-		urlModel, exists := store.URLMap[shortCode]
-		store.Mu.RUnlock()
+		// Retrieve URL from storage using encapsulated method
+		urlModel, exists := store.GetURL(shortCode)
 
 		if !exists {
 			utils.RespondWithError(c, http.StatusNotFound, "Short URL not found")
@@ -27,16 +24,20 @@ func StatsHandler(store *storage.Storage) gin.HandlerFunc {
 
 		// Check for expiration
 		if !urlModel.ExpiresAt.IsZero() && time.Now().After(urlModel.ExpiresAt) {
-			utils.RespondWithError(c, http.StatusNotFound, "Short URL not found or has expired")
+			// Remove expired URL from storage
+			store.DeleteURL(shortCode)
+			utils.RespondWithError(c, http.StatusNotFound, "Short URL has expired")
 			return
 		}
 
-		// Prepare the response
+		// Prepare the response using StatsResponse
 		response := models.StatsResponse{
-			LongURL:     urlModel.LongURL,
-			AccessCount: urlModel.AccessCount,
-			CreatedAt:   urlModel.CreatedAt,
-			ExpiresAt:   urlModel.ExpiresAt,
+			BaseURL: models.BaseURL{
+				LongURL:     urlModel.LongURL,
+				AccessCount: urlModel.AccessCount,
+				CreatedAt:   urlModel.CreatedAt,
+				ExpiresAt:   urlModel.ExpiresAt,
+			},
 		}
 
 		utils.RespondWithJSON(c, http.StatusOK, response)
